@@ -1,0 +1,9 @@
+Loghi delle radio salvati nell'app.
+
+Se il logo di una radio non compare (o vuoi cambiarlo), metti qui un'immagine
+PNG quadrata (meglio almeno 256x256) con il nome della radio, per esempio:
+
+  deejay.png   capital.png   kisskiss.png   rai1.png   rtl.png ...
+
+I nomi corrispondono al campo "id" in index.html. Un logo messo qui ha
+sempre la precedenza su quelli scaricati da internet.

@@ -133,12 +133,12 @@ const STATIONS = [
   { id:"rai2",    name:"Rai Radio 2",       genre:"Rai",             mono:"R2",  color:"#d9a400", site:"radio2.rai.it",           url:"https://icestreaming.rai.it/2.mp3", q:"Rai Radio 2" },
   { id:"rai3",    name:"Rai Radio 3",       genre:"Rai",             mono:"R3",  color:"#7a4fd0", site:"radio3.rai.it",           url:"https://icestreaming.rai.it/3.mp3", q:"Rai Radio 3" },
   { id:"rtl",     name:"RTL 102.5",         genre:"Hit",             mono:"RTL", color:"#c8323c", site:"rtl.it",                  url:"https://streamingv2.shoutcast.com/rtl-1025", q:"RTL 102.5" },
-  { id:"deejay",  name:"Radio Deejay",      genre:"Musica",          mono:"DJ",  color:"#2f9e5b", site:"deejay.it", alt:["www.deejay.it","radiodeejay.it"], url:"https://streamcdnm3-4c4b867c89244861ac216426883d1ad0.msvdn.net/radiodeejay/radiodeejay/play1.m3u8", q:"Radio Deejay" },
+  { id:"deejay",  name:"Radio Deejay",      genre:"Musica",          mono:"DJ",  color:"#2f9e5b", site:"deejay.it", alt:["www.deejay.it","radiodeejay.it"], logos:["https://commons.wikimedia.org/wiki/Special:FilePath/Radio_Deejay_logo.svg?width=256","https://commons.wikimedia.org/wiki/Special:FilePath/Logo_Radio_Deejay.svg?width=256","https://commons.wikimedia.org/wiki/Special:FilePath/Radio_DeeJay_logo.svg?width=256","https://commons.wikimedia.org/wiki/Special:FilePath/Radio_Deejay.svg?width=256"], url:"https://streamcdnm3-4c4b867c89244861ac216426883d1ad0.msvdn.net/radiodeejay/radiodeejay/play1.m3u8", q:"Radio Deejay" },
   { id:"rds",     name:"RDS",               genre:"Musica",          mono:"RDS", color:"#d9572b", site:"rds.it",                  url:"https://icstream.rds.radio/rds", q:"RDS" },
   { id:"r105",    name:"Radio 105",         genre:"Musica",          mono:"105", color:"#c03a7a", site:"105.net",                 url:"https://icecast.unitedradio.it/Radio105.mp3", q:"Radio 105" },
   { id:"virgin",  name:"Virgin Radio",      genre:"Rock",            mono:"VR",  color:"#b8323a", site:"virginradio.it",          url:"https://icecast.unitedradio.it/Virgin.mp3", q:"Virgin Radio" },
   { id:"italia",  name:"Radio Italia",      genre:"Musica italiana", mono:"RI",  color:"#2f7fb8", site:"radioitalia.it",          url:"", q:"Radio Italia" },
-  { id:"capital", name:"Radio Capital",     genre:"Classici",        mono:"CAP", color:"#5a6478", site:"capital.it", alt:["www.capital.it","radiocapital.it"], url:"https://streamcdnm11-4c4b867c89244861ac216426883d1ad0.msvdn.net/radiocapital/radiocapital/play1.m3u8", q:"Radio Capital" },
+  { id:"capital", name:"Radio Capital",     genre:"Classici",        mono:"CAP", color:"#5a6478", site:"capital.it", alt:["www.capital.it","radiocapital.it"], logos:["https://commons.wikimedia.org/wiki/Special:FilePath/Radio_Capital_logo.svg?width=256","https://commons.wikimedia.org/wiki/Special:FilePath/Logo_Radio_Capital.svg?width=256","https://commons.wikimedia.org/wiki/Special:FilePath/Radio_Capital_-_Logo_2019.svg?width=256","https://commons.wikimedia.org/wiki/Special:FilePath/Radio_Capital.svg?width=256"], url:"https://streamcdnm11-4c4b867c89244861ac216426883d1ad0.msvdn.net/radiocapital/radiocapital/play1.m3u8", q:"Radio Capital" },
   { id:"kisskiss",name:"Radio Kiss Kiss",   genre:"Musica",          mono:"KK",  color:"#d63c8a", site:"radiokisskiss.it", alt:["www.radiokisskiss.it","kisskiss.it"], url:"", q:"Radio Kiss Kiss" },
   { id:"rmc",     name:"Radio Monte Carlo", genre:"Musica",          mono:"RMC", color:"#3a8f9c", site:"radiomontecarlo.net",     url:"https://icecast.unitedradio.it/RMC.mp3", q:"Radio Monte Carlo" },
   { id:"m2o",     name:"m2o",               genre:"Dance",           mono:"m2o", color:"#7b46c9", site:"m2o.it",                  url:"", q:"m2o" },
@@ -165,10 +165,12 @@ const iOS = /iP(ad|hone|od)/.test(navigator.userAgent) || (navigator.platform ==
 // Fonti possibili per il logo ufficiale, provate in ordine finché una dà un'immagine nitida.
 function logoCandidates(s){
   const doms = [s.site].concat(s.alt || []);
-  const list = [];
+  // 1) logo salvato nell'app (cartella logos/, es. logos/deejay.png): ha sempre la precedenza
+  const list = ["logos/" + s.id + ".png"].concat(s.logos || []);
   for (const d of doms) list.push("https://www.google.com/s2/favicons?sz=256&domain=" + encodeURIComponent(d));
   for (const d of doms) list.push("https://icon.horse/icon/" + encodeURIComponent(d));
   list.push("https://icons.duckduckgo.com/ip3/" + encodeURIComponent(s.site) + ".ico");
+  for (const d of doms) list.push("https://" + (d.startsWith("www.") ? d : "www." + d) + "/apple-touch-icon.png");
   return list;
 }
 // Ultima risorsa: il logo registrato per la stazione su radio-browser.info
