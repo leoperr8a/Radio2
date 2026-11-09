@@ -39,11 +39,18 @@
   #play{
     width:clamp(150px,36vw,200px);aspect-ratio:1;border-radius:50%;border:0;
     background:var(--accent);color:var(--accent-fg);cursor:pointer;
-    display:grid;place-items:center;box-shadow:0 10px 40px rgba(255,210,63,.25);
-    transition:transform .1s;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6%;
+    box-shadow:0 10px 40px rgba(255,210,63,.25);
+    transition:transform .1s,background .2s,color .2s,box-shadow .2s;
   }
   #play:active{transform:scale(.96)}
-  #play svg{width:42%;height:42%}
+  #play svg{width:34%;height:34%}
+  #play .lbl{font-size:clamp(17px,4vw,22px);font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+  .playing #play{
+    background:var(--panel);color:var(--accent);
+    box-shadow:inset 0 0 0 5px var(--accent),0 10px 40px rgba(255,210,63,.12);
+  }
+  .hint{font-size:15px;color:var(--muted);margin-top:-22px;min-height:20px}
   .vol{display:flex;align-items:center;gap:18px;width:100%}
   .vol button{
     flex:none;width:76px;height:76px;border-radius:20px;border:0;background:var(--panel);
@@ -64,7 +71,9 @@
   <button id="play" aria-label="Play">
     <svg id="icoPlay" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>
     <svg id="icoStop" viewBox="0 0 24 24" fill="currentColor" hidden><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+    <span class="lbl" id="playLbl">Ascolta</span>
   </button>
+  <div class="hint" id="hint">Tocca per accendere la radio</div>
   <div class="vol">
     <button id="down" aria-label="Volume giù">−</button>
     <div class="bar"><i id="fill"></i></div>
@@ -97,8 +106,10 @@ try { const v = parseFloat(localStorage.getItem("r2vol")); if (v >= 0 && v <= 1)
 function status(t){ $("statusText").textContent = t; }
 function render(){
   document.body.classList.toggle("playing", playing);
-  $("icoPlay").hidden = playing; $("icoStop").hidden = !playing;
-  $("play").setAttribute("aria-label", playing ? "Stop" : "Play");
+  $("icoPlay").toggleAttribute("hidden", playing); $("icoStop").toggleAttribute("hidden", !playing);
+  $("play").setAttribute("aria-label", playing ? "Ferma la radio" : "Ascolta la radio");
+  $("playLbl").textContent = playing ? "Ferma" : "Ascolta";
+  $("hint").textContent = playing ? "Tocca per spegnere la radio" : "Tocca per accendere la radio";
   $("fill").style.width = Math.round(vol*100) + "%";
   $("pct").textContent = Math.round(vol*100) + "%";
 }
