@@ -78,7 +78,7 @@
     flex:none;width:56px;height:56px;border-radius:14px;overflow:hidden;
     display:grid;place-items:center;font-weight:800;font-size:15px;color:#fff;
   }
-  .t .logo img{width:100%;height:100%;object-fit:contain;background:#fff;padding:4px}
+  .t .logo img{display:block;width:100%;height:100%;object-fit:cover}
   .t .sp{flex:1;min-height:14px}
   .t b{font-size:21px;font-weight:800;line-height:1.1;letter-spacing:-.01em}
   .t small{color:var(--muted);font-size:13px}
@@ -133,13 +133,13 @@ const STATIONS = [
   { id:"rai2",    name:"Rai Radio 2",       genre:"Rai",             mono:"R2",  color:"#d9a400", site:"radio2.rai.it",           url:"https://icestreaming.rai.it/2.mp3", q:"Rai Radio 2" },
   { id:"rai3",    name:"Rai Radio 3",       genre:"Rai",             mono:"R3",  color:"#7a4fd0", site:"radio3.rai.it",           url:"https://icestreaming.rai.it/3.mp3", q:"Rai Radio 3" },
   { id:"rtl",     name:"RTL 102.5",         genre:"Hit",             mono:"RTL", color:"#c8323c", site:"rtl.it",                  url:"https://streamingv2.shoutcast.com/rtl-1025", q:"RTL 102.5" },
-  { id:"deejay",  name:"Radio Deejay",      genre:"Musica",          mono:"DJ",  color:"#2f9e5b", site:"deejay.it",               url:"https://streamcdnm3-4c4b867c89244861ac216426883d1ad0.msvdn.net/radiodeejay/radiodeejay/play1.m3u8", q:"Radio Deejay" },
+  { id:"deejay",  name:"Radio Deejay",      genre:"Musica",          mono:"DJ",  color:"#2f9e5b", site:"deejay.it", alt:["www.deejay.it","radiodeejay.it"], url:"https://streamcdnm3-4c4b867c89244861ac216426883d1ad0.msvdn.net/radiodeejay/radiodeejay/play1.m3u8", q:"Radio Deejay" },
   { id:"rds",     name:"RDS",               genre:"Musica",          mono:"RDS", color:"#d9572b", site:"rds.it",                  url:"https://icstream.rds.radio/rds", q:"RDS" },
   { id:"r105",    name:"Radio 105",         genre:"Musica",          mono:"105", color:"#c03a7a", site:"105.net",                 url:"https://icecast.unitedradio.it/Radio105.mp3", q:"Radio 105" },
   { id:"virgin",  name:"Virgin Radio",      genre:"Rock",            mono:"VR",  color:"#b8323a", site:"virginradio.it",          url:"https://icecast.unitedradio.it/Virgin.mp3", q:"Virgin Radio" },
   { id:"italia",  name:"Radio Italia",      genre:"Musica italiana", mono:"RI",  color:"#2f7fb8", site:"radioitalia.it",          url:"", q:"Radio Italia" },
-  { id:"capital", name:"Radio Capital",     genre:"Classici",        mono:"CAP", color:"#5a6478", site:"capital.it",              url:"https://streamcdnm11-4c4b867c89244861ac216426883d1ad0.msvdn.net/radiocapital/radiocapital/play1.m3u8", q:"Radio Capital" },
-  { id:"kisskiss",name:"Radio Kiss Kiss",   genre:"Musica",          mono:"KK",  color:"#d63c8a", site:"radiokisskiss.it",        url:"", q:"Radio Kiss Kiss" },
+  { id:"capital", name:"Radio Capital",     genre:"Classici",        mono:"CAP", color:"#5a6478", site:"capital.it", alt:["www.capital.it","radiocapital.it"], url:"https://streamcdnm11-4c4b867c89244861ac216426883d1ad0.msvdn.net/radiocapital/radiocapital/play1.m3u8", q:"Radio Capital" },
+  { id:"kisskiss",name:"Radio Kiss Kiss",   genre:"Musica",          mono:"KK",  color:"#d63c8a", site:"radiokisskiss.it", alt:["www.radiokisskiss.it","kisskiss.it"], url:"", q:"Radio Kiss Kiss" },
   { id:"rmc",     name:"Radio Monte Carlo", genre:"Musica",          mono:"RMC", color:"#3a8f9c", site:"radiomontecarlo.net",     url:"https://icecast.unitedradio.it/RMC.mp3", q:"Radio Monte Carlo" },
   { id:"m2o",     name:"m2o",               genre:"Dance",           mono:"m2o", color:"#7b46c9", site:"m2o.it",                  url:"", q:"m2o" },
   { id:"radio24", name:"Radio 24",          genre:"Notizie",         mono:"24",  color:"#2d6a9f", site:"radio24.ilsole24ore.com", url:"", q:"Radio 24" },
@@ -162,7 +162,47 @@ let found = {}; try { found = JSON.parse(store.get("found") || "{}") || {}; } ca
 const iOS = /iP(ad|hone|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
 // ---------- griglia ----------
-function logoUrl(s){ return "https://www.google.com/s2/favicons?sz=128&domain=" + encodeURIComponent(s.site); }
+// Fonti possibili per il logo ufficiale, provate in ordine finché una dà un'immagine nitida.
+function logoCandidates(s){
+  const doms = [s.site].concat(s.alt || []);
+  const list = [];
+  for (const d of doms) list.push("https://www.google.com/s2/favicons?sz=256&domain=" + encodeURIComponent(d));
+  for (const d of doms) list.push("https://icon.horse/icon/" + encodeURIComponent(d));
+  list.push("https://icons.duckduckgo.com/ip3/" + encodeURIComponent(s.site) + ".ico");
+  return list;
+}
+// Ultima risorsa: il logo registrato per la stazione su radio-browser.info
+async function radioBrowserLogo(s){
+  try {
+    const r = await fetch("https://all.api.radio-browser.info/json/stations/search?name=" + encodeURIComponent(s.q) + "&countrycode=IT&order=votes&reverse=true&limit=5");
+    const list = await r.json();
+    const hit = list.find(x => /^https:/.test(x.favicon || ""));
+    return hit ? hit.favicon : null;
+  } catch(e) { return null; }
+}
+function loadImg(url){
+  return new Promise(res => {
+    const img = new Image();
+    img.alt = ""; img.referrerPolicy = "no-referrer";
+    img.onload = () => res(img); img.onerror = () => res(null);
+    img.src = url;
+  });
+}
+async function loadLogo(s, box){
+  let best = null;
+  for (const url of logoCandidates(s)) {
+    const img = await loadImg(url);
+    if (!img) continue;
+    if (img.naturalWidth >= 64) { best = img; break; }          // nitido: lo uso subito
+    if (img.naturalWidth >= 32 && (!best || img.naturalWidth > best.naturalWidth)) best = img;
+  }
+  if (!best || best.naturalWidth < 64) {
+    const u = await radioBrowserLogo(s);
+    const img = u && await loadImg(u);
+    if (img && img.naturalWidth >= 32 && (!best || img.naturalWidth > best.naturalWidth)) best = img;
+  }
+  if (best) { box.textContent = ""; box.style.background = "#fff"; box.appendChild(best); }
+}
 function buildGrid(){
   const g = $("grid");
   for (const s of STATIONS) {
@@ -170,13 +210,7 @@ function buildGrid(){
     b.className = "t"; b.dataset.id = s.id;
     b.innerHTML = `<span class="logo" style="background:${s.color}">${s.mono}</span>
       <span class="sp"></span><b>${s.name}</b><small>${s.genre}</small>`;
-    const img = new Image();
-    img.alt = ""; img.referrerPolicy = "no-referrer";
-    img.onload = () => {
-      // se il sito non ha un'icona il servizio restituisce un globo generico di 16px: in quel caso tengo la sigla
-      if (img.naturalWidth >= 48) { const l = b.querySelector(".logo"); l.textContent = ""; l.style.background = "#fff"; l.appendChild(img); }
-    };
-    img.src = logoUrl(s);
+    loadLogo(s, b.querySelector(".logo"));
     b.onclick = () => choose(s);
     g.appendChild(b);
   }
