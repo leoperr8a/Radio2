@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Radio 2">
+<meta name="theme-color" content="#14161c">
+<title>Radio 2</title>
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' fill='%2314161c'/%3E%3Ctext x='90' y='122' font-family='Helvetica,Arial' font-weight='700' font-size='110' fill='%23ffd23f' text-anchor='middle'%3E2%3C/text%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#14161c; --panel:#1e2129; --fg:#f4f2ea; --muted:#9aa0ad;
+    --accent:#ffd23f; --accent-fg:#14161c; --live:#ff4d4d;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  html,body{height:100%;margin:0}
+  body{
+    background:var(--bg);color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
+    display:flex;align-items:center;justify-content:center;
+    padding:env(safe-area-inset-top) max(16px,env(safe-area-inset-right)) env(safe-area-inset-bottom) max(16px,env(safe-area-inset-left));
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+  }
+  main{width:100%;max-width:520px;display:flex;flex-direction:column;align-items:center;gap:36px;text-align:center}
+  .brand{display:flex;flex-direction:column;gap:6px;align-items:center}
+  .brand small{letter-spacing:.2em;text-transform:uppercase;color:var(--muted);font-size:13px}
+  .brand h1{margin:0;font-size:clamp(48px,11vw,84px);font-weight:800;letter-spacing:-.03em;line-height:1}
+  .brand h1 span{color:var(--accent)}
+  .status{display:flex;align-items:center;gap:10px;font-size:16px;color:var(--muted);min-height:24px}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--muted)}
+  .playing .dot{background:var(--live);animation:pulse 1.4s infinite}
+  @keyframes pulse{50%{opacity:.3}}
+  @media (prefers-reduced-motion:reduce){.playing .dot{animation:none}}
+  #play{
+    width:clamp(150px,36vw,200px);aspect-ratio:1;border-radius:50%;border:0;
+    background:var(--accent);color:var(--accent-fg);cursor:pointer;
+    display:grid;place-items:center;box-shadow:0 10px 40px rgba(255,210,63,.25);
+    transition:transform .1s;
+  }
+  #play:active{transform:scale(.96)}
+  #play svg{width:42%;height:42%}
+  .vol{display:flex;align-items:center;gap:18px;width:100%}
+  .vol button{
+    flex:none;width:76px;height:76px;border-radius:20px;border:0;background:var(--panel);
+    color:var(--fg);font-size:38px;font-weight:600;cursor:pointer;
+  }
+  .vol button:active{background:#2a2e38}
+  .bar{flex:1;height:14px;border-radius:7px;background:var(--panel);overflow:hidden}
+  .bar i{display:block;height:100%;width:70%;background:var(--accent);transition:width .15s}
+  .pct{font-variant-numeric:tabular-nums;color:var(--muted);font-size:15px;min-width:4ch}
+  button:focus-visible{outline:3px solid var(--fg);outline-offset:3px}
+  .note{font-size:13px;color:var(--muted);max-width:40ch;line-height:1.5}
+</style>
+</head>
+<body>
+<main>
+  <div class="brand"><small>Rai</small><h1>Radio <span>2</span></h1></div>
+  <div class="status" id="status"><span class="dot"></span><span id="statusText">Pronta</span></div>
+  <button id="play" aria-label="Play">
+    <svg id="icoPlay" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>
+    <svg id="icoStop" viewBox="0 0 24 24" fill="currentColor" hidden><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+  </button>
+  <div class="vol">
+    <button id="down" aria-label="Volume giù">−</button>
+    <div class="bar"><i id="fill"></i></div>
+    <span class="pct" id="pct">70%</span>
+    <button id="up" aria-label="Volume su">+</button>
+  </div>
+  <p class="note" id="note" hidden></p>
+</main>
+<audio id="audio" preload="none" playsinline></audio>
+<script>
+const STREAM = "https://icestreaming.rai.it/2.mp3";
+const $ = id => document.getElementById(id);
+let audio = $("audio");
+let vol = 0.7, playing = false, ctx = null, gain = null;
+let corsOk = false;   // diventa true solo se il server Rai consente il controllo del volume via Web Audio
+try { const v = parseFloat(localStorage.getItem("r2vol")); if (v >= 0 && v <= 1) vol = v; } catch(e){}
+
+// All'apertura verifico (senza bloccare nulla) se lo stream consente CORS.
+// Se no, l'app usa la riproduzione semplice, che funziona sempre.
+(function probe(){
+  if (!window.fetch || !window.AbortController) return;
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), 4000);
+  fetch(STREAM + "?probe=" + Date.now(), { mode: "cors", signal: ac.signal })
+    .then(r => { corsOk = r.ok; ac.abort(); })
+    .catch(() => {})
+    .finally(() => clearTimeout(t));
+})();
+
+function status(t){ $("statusText").textContent = t; }
+function render(){
+  document.body.classList.toggle("playing", playing);
+  $("icoPlay").hidden = playing; $("icoStop").hidden = !playing;
+  $("play").setAttribute("aria-label", playing ? "Stop" : "Play");
+  $("fill").style.width = Math.round(vol*100) + "%";
+  $("pct").textContent = Math.round(vol*100) + "%";
+}
+function applyVol(){
+  if (gain) gain.gain.value = vol;
+  audio.volume = gain ? 1 : vol;
+  try { localStorage.setItem("r2vol", vol); } catch(e){}
+  render();
+}
+function wire(el){
+  el.addEventListener("error", onError);
+  el.addEventListener("waiting", () => playing && status("Buffering…"));
+  el.addEventListener("playing", onPlaying);
+}
+function freshPlainAudio(){
+  // elemento nuovo, mai collegato a Web Audio: riproduzione semplice garantita
+  const el = new Audio(); el.preload = "none"; el.setAttribute("playsinline", "");
+  wire(el); audio = el; gain = null;
+}
+function play(){
+  if (corsOk && !gain) {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      ctx = new AC();
+      audio.crossOrigin = "anonymous";
+      const src = ctx.createMediaElementSource(audio);
+      gain = ctx.createGain();
+      src.connect(gain).connect(ctx.destination);
+    } catch(e) { corsOk = false; freshPlainAudio(); }
+  }
+  if (ctx && ctx.state === "suspended") ctx.resume();
+  audio.src = STREAM + "?t=" + Date.now();   // sempre in diretta
+  applyVol();
+  status("Connessione…");
+  playing = true; render();
+  const p = audio.play();
+  if (p) p.catch(err => {
+    if (err.name === "AbortError") return;
+    playing = false; render();
+    status(err.name === "NotAllowedError" ? "Tocca Play per avviare" : "Errore: " + err.name);
+  });
+}
+function stop(){
+  audio.pause(); audio.removeAttribute("src"); audio.load();
+  playing = false; status("Fermata"); render();
+}
+function onError(){
+  if (!audio.getAttribute("src")) return;
+  if (gain) {           // Web Audio non accettato dal server: passo alla modalità semplice
+    corsOk = false; freshPlainAudio(); play(); return;
+  }
+  playing = false; render();
+  status("Stream bloccato: apri l'app in Safari o Chrome");
+}
+function onPlaying(){
+  status("In diretta");
+  if (iOS && !gain) { $("note").textContent = "Su questo dispositivo il volume si regola con i tasti laterali dell'iPad."; $("note").hidden = false; }
+}
+const iOS = /iP(ad|hone|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+wire(audio);
+
+$("play").onclick = () => playing ? stop() : play();
+$("up").onclick = () => { vol = Math.min(1, Math.round((vol+0.1)*10)/10); applyVol(); };
+$("down").onclick = () => { vol = Math.max(0, Math.round((vol-0.1)*10)/10); applyVol(); };
+document.addEventListener("keydown", e => {
+  if (e.code === "Space") { e.preventDefault(); $("play").click(); }
+  if (e.key === "ArrowUp") $("up").click();
+  if (e.key === "ArrowDown") $("down").click();
+});
+
+// Controlli dal centro di controllo / schermata di blocco
+if ("mediaSession" in navigator) {
+  navigator.mediaSession.metadata = new MediaMetadata({ title: "Rai Radio 2", artist: "In diretta" });
+  navigator.mediaSession.setActionHandler("play", play);
+  navigator.mediaSession.setActionHandler("pause", stop);
+  try { navigator.mediaSession.setActionHandler("stop", stop); } catch(e){}
+}
+
+render();
+</script>
+</body>
+</html>
